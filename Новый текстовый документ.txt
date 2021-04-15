@@ -1,0 +1,68 @@
+{   // Создадим первую пробную версию лабиринта (Maze 1.png)
+        // TODO: - создать граф как у Никольской
+        /*
+        vector<char> chars = { 'М', 'Ы', 'Ц', 'П', 'Л',
+        'Ж', 'С', 'Г', 'А', 'Б', 'В', 'Я' };
+        Bjn bjn(chars);
+        bjn.numbered_chars();
+        std::vector<Vertex> verts(chars.size());
+
+        verts[0] = Vertex(0, 1, 1, 0, 0); // А
+        verts[1] = Vertex(1);             // Б
+        verts[2] = Vertex(2, 1, 0, 1, 0); // В
+        verts[3] = Vertex(3);             // Г
+        verts[4] = Vertex(4);             // Ж
+        verts[5] = Vertex(5);             // Л
+        verts[6] = Vertex(6);             // М
+        verts[7] = Vertex(7, 1, 0, 0, 1); // П
+        verts[8] = Vertex(8);             // С
+        verts[9] = Vertex(9);             // Ц
+        verts[10] = Vertex(10, 1, 0, 0, 1); // Ы
+        verts[11] = Vertex(11);             // Я
+
+        std::vector<std::vector<int>> tbl(chars.size());
+        tbl[0].push_back(1);
+
+        tbl[1].push_back(0);
+        tbl[1].push_back(2);
+        tbl[1].push_back(8);
+
+        tbl[2].push_back(1);
+        tbl[2].push_back(11);
+
+        tbl[3].push_back(8);
+        tbl[3].push_back(7);
+
+        tbl[4].push_back(8);
+        tbl[4].push_back(9);
+
+        tbl[5].push_back(7);
+
+        tbl[6].push_back(10);
+
+        tbl[7].push_back(3);
+        tbl[7].push_back(5);
+        tbl[7].push_back(9);
+
+        tbl[8].push_back(1);
+        tbl[8].push_back(3);
+        tbl[8].push_back(4);
+        tbl[8].push_back(9);
+
+        tbl[9].push_back(7);
+        tbl[9].push_back(8);
+        tbl[9].push_back(10);
+
+        tbl[10].push_back(4);
+        tbl[10].push_back(6);
+
+        tbl[11].push_back(0);
+
+        cout << '\n';
+        alert_vertexes(bjn, tbl, verts);
+
+        Maze mz(bjn, verts, tbl);
+        auto char_path = mz.gen_path_trivial(bjn, 'А');
+        cout << "Outs full: ";
+        alert(char_path);*/
+    }
