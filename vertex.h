@@ -103,49 +103,55 @@ public:
                     if (u.GetX() - v.GetX() > 0)
                         dirs[i][j] = "L";
                     else dirs[i][j] = "R";
-                }  // ƒиагонали, если вдруг пригод€тс€
-                /*else if (u.GetX() != v.GetX() && u.GetY() != v.GetY()){
+                }
+                else if (u.GetX() != v.GetX() && u.GetY() != v.GetY()){
                     if (u.GetX() > v.GetX() && u.GetY() > v.GetY()) {
-                        dirs[i][j] = "UR";
-                    }
-                    else if (u.GetX() > v.GetX() && u.GetY() < v.GetY()) {
-                        dirs[i][j] = "DR";
-                    }
-                    else if (u.GetX() < v.GetX() && u.GetY() > v.GetY()) {
-                        dirs[i][j] = "UL";
-                    }
-                    else if (u.GetX() < v.GetX() && u.GetY() < v.GetY()) {
                         dirs[i][j] = "DL";
                     }
-                }*/
+                    else if (u.GetX() > v.GetX() && u.GetY() < v.GetY()) {
+                        dirs[i][j] = "UL";
+                    }
+                    else if (u.GetX() < v.GetX() && u.GetY() > v.GetY()) {
+                        dirs[i][j] = "DR";
+                    }
+                    else if (u.GetX() < v.GetX() && u.GetY() < v.GetY()) {
+                        dirs[i][j] = "UR";
+                    }
+                }
             }
         }
     }
 
     void PrintDirections(const Bjn& bjn) const {
-        std::cout << '\t';
+        std::cout << " \t";
         for (size_t i = 0; i < dirs.size(); ++i) {
-            std::cout << bjn[i] << '\t';
+            std::cout << bjn[i] << " \t";
         }
 
         std::cout << '\n';
 
         for (size_t i = 0; i < dirs.size(); ++i) {
-            std::cout << bjn[i] << ":\t";
+            std::cout << bjn[i] << ": \t";
             for (size_t j = 0; j < dirs[i].size(); ++j) {
-                std::cout << dirs[i][j] << "\t";
+                std::cout << dirs[i][j] << " \t";
             }
 
             std::cout << '\n';
         }
     }
-    const std::vector<std::string> operator[] (size_t i) const { return dirs[i]; }
-    std::vector<std::string>& operator[] (size_t i) { return dirs[i]; }
 
     template <typename T>
-    std::string DirectionBetween(T i, T j) { return dirs[i][j]; }
+    const std::string DirectionBetween(T i, T j) const { return dirs[i][j]; }
 
     std::vector<std::string> convert_to_dirs(std::vector<int> v) {
+        // try catch if v.size is invalid <= 1
+        try {
+            if (v.size() < 2) {
+                throw std::invalid_argument("");
+            }
+        } catch (...) {
+            exit(1);
+        }
         std::vector<std::string> converted;
         converted.reserve(v.size() - 1);
         for (size_t i = 0; i < v.size() - 1; ++i) {
@@ -154,8 +160,11 @@ public:
 
         return converted;
     };
+
     template <typename T>
     std::vector<int> convert_to_v(std::vector<std::string> str_v, T start_v) {
+        //std::cout << start_v << ", ";
+        //alert(str_v);
         std::vector<int> converted;
         converted.reserve(str_v.size() + 1);
         converted.push_back(start_v);
@@ -183,36 +192,28 @@ public:
     }
 };
 
-void switch_directions(std::string& dr, int MODE) {
+void switch_direction(std::string& dr, int MODE) {
     if (MODE == 0) {
-        if (dr == "U") { dr = "D"; }
-        else if (dr == "D") { dr = "U"; }
+        if (dr.front() == 'U') { dr.front() = 'D'; }
+        else if (dr.front() == 'D') { dr.front() = 'U'; }
     }
     else if (MODE == 1) {
-        if (dr == "L") { dr = "R"; }
-        else if (dr == "R") { dr = "L"; }
-    }
-    else {
-        if (dr == "U") { dr = "D"; }
-        else if (dr == "D") { dr = "U"; }
-        else if (dr == "L") { dr = "R"; }
-        else if (dr == "R") { dr = "L"; }
+        if (dr.back() == 'L') { dr.back() = 'R'; }
+        else if (dr.back() == 'R') { dr.back() = 'L'; }
     }
 }
 
 void inverse_dirs(std::vector<std::string>& drs, std::string TYPE) {
-    int MODE;
+    // ≈сли TYPE не соответствует значению 0 или 1, разрез по умолчанию вертикальный
+    int MODE = 1;
     if (TYPE == "horizontal") {
         MODE = 0;
     }
     else if (TYPE == "vertical") {
         MODE = 1;
     }
-    else {
-        MODE = 12;
-    }
 
     for (size_t i = 0; i < drs.size(); ++i) {
-        switch_directions(drs[i], MODE);
+        switch_direction(drs[i], MODE);
     }
 }

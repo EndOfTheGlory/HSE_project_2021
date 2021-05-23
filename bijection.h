@@ -2,6 +2,7 @@
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
+#include <string>
 
 class Bjn {
 private:
@@ -19,13 +20,13 @@ public:
         }
     }
 
-    void numbered_chars() const {
-        size_t n = digs.size();
-        for (size_t i = 0; i != n; ++i) {
-            std::cout << symbs.at(i) << ":" << i << "; ";
-        }
-        std::cout << '\n';
-    }
+    //void numbered_chars() const {
+    //    size_t n = digs.size();
+    //    for (size_t i = 0; i != n; ++i) {
+    //        std::cout << symbs.at(i) << ":" << i << "; ";
+    //    }
+    //    std::cout << '\n';
+    //}
 
     int operator[] (char c) const { return this->digs.at(c); }
     template <typename T>
@@ -35,10 +36,12 @@ public:
 
     friend std::vector<int> char_to_int(const Bjn& bjn,
         const std::vector<char>& path_char);
+    friend std::vector<int> char_to_int(const Bjn& bjn,
+        const std::string& path_char);
     friend std::vector<char> int_to_char(const Bjn& bjn,
         const std::vector<int>& path_int);
-    friend int char_to_int(const Bjn& bjn, char c);
-    friend char int_to_char(const Bjn& bjn, int v);
+    friend std::string int_to_char_str(const Bjn& bjn,
+        const std::vector<int>& path_int);
 };
 
 std::vector<int> char_to_int(const Bjn& bjn, const std::vector<char>& path_char) {
@@ -46,6 +49,16 @@ std::vector<int> char_to_int(const Bjn& bjn, const std::vector<char>& path_char)
     for (size_t i = 0; i != path_int.size(); ++i) {
         path_int[i] = bjn.digs.at(path_char[i]);
     }
+
+    return path_int;
+}
+
+std::vector<int> char_to_int(const Bjn& bjn, const std::string& path_char) {
+    std::vector<int> path_int(path_char.size());
+    for (size_t i = 0; i != path_int.size(); ++i) {
+        path_int[i] = bjn.digs.at(path_char[i]);
+    }
+
     return path_int;
 }
 
@@ -54,13 +67,16 @@ std::vector<char> int_to_char(const Bjn& bjn, const std::vector<int>& path_int) 
     for (size_t i = 0; i != path_int.size(); ++i) {
         path_char[i] = bjn.symbs.at(path_int[i]);
     }
+
     return path_char;
 }
 
-int char_to_int(const Bjn& bjn, char c) {
-    return bjn.digs.at(c);
-}
+std::string int_to_char_str(const Bjn& bjn, const std::vector<int>& path_int) {
+    std::string path_char;
+    path_char.resize(path_int.size());
+    for (size_t i = 0; i != path_int.size(); ++i) {
+        path_char[i] = bjn.symbs.at(path_int[i]);
+    }
 
-char int_to_char(const Bjn& bjn, int v) {
-    return bjn.symbs.at(v);
+    return path_char;
 }

@@ -4,13 +4,17 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
+#include <string>
 #include "help_functions.h"
-#include "path_algo.h"
+#include "tensor.h"
 #include "maze.h"
 
 extern RandomGenerator gen;
+extern const int INF;
+const int treshold = 500;
+extern double acc;
 
-std::vector<int> subseq(std::vector<int>& v, size_t a, size_t b) {
+std::vector<int> subseq(const std::vector<int>& v, size_t a, size_t b) {
     std::vector<int> subseq;
     subseq.reserve(6);
     for (size_t i = a; i < b; ++i) {
@@ -33,8 +37,8 @@ public:
         probability = prob;
     }
 
-    const double GetProb() const { return probability; }
-    // void SetProb(double prob) { probability = prob; }
+    virtual const double GetProb() const { return probability; }
+    virtual void SetProb(double prob) { probability = prob; }
 
     virtual void method(const Maze& mz, std::vector<int>& v, size_t subseq_size) const {}
     virtual void name() const {}
@@ -62,79 +66,62 @@ public:
 
     Symmetry(double prob) : DiscreteOperator(prob) {}
 
-        /*
-        1. Начальная последовательность кодируется в виде "LRUP"
-        2. Определяется симметричный разрез графа
-        3. Ищется вершина, симметричная начальной
-        4. Строится новая последовательноть :
-            Если разрез - вертикальный, L меняется на R и наоборот
-            Если разрез - горизонтальный, U меняется на D и наоборот
-        5. По полученной последовательности восстанавливаем симметричный путь,
-            зная вершину из пункта 3.
-        */
     void method(const Maze& mz, std::vector<int>& v, size_t subseq_size) const override {
         if (probability == .0) return;
-        // std::vector<int> subv = subseq(v, v.size() - 1 - subseq_size, v.size());
-        std::vector<int> subv = v;
+        if (subseq_size > v.size()) { return; }
+        
+        auto vs = mz.GetVertexes();
+        std::vector<int> subv = subseq(v, v.size() - subseq_size, v.size());
         Directions DIRS = mz.GetDirections();
-        auto str_v = DIRS.convert_to_dirs(subv);  // Пункт 1
+        auto str_v = DIRS.convert_to_dirs(subv);
         int first_vert = subv.front();
-
-        // Рассматриваем только вертикальное сечение
-        // Не стал удалять возможную реализацию для вертикального,
-        // так как при необходимости можно реализовать рандомный выбор
-        // между вертикальном и горизонтальным сечением
+;
+        // Теоретически можно использовать и горизонтальный тип разреза
         std::string type = "vertical";
 
-        // Ищем симметричную вершину
-        // Считаем вершины слева, двигаемся до упора вправо
-        // и на посчитанное количество влево
         auto gph = mz.GetGraphList();
-
-        // Если рассматриваем горизонтальный разрез,
-        // то LR меняем на UD
-        int tmp = first_vert;
-        int count_left = 0;
-        while (true) {
-            size_t i = 0;
-            while (i < gph[tmp].size() && 
-                   DIRS.DirectionBetween(tmp, gph[tmp][i]) != "L") {
-                ++i;
-            }
-            if (i < gph[tmp].size()) {
-                ++count_left;
-                tmp = gph[tmp][i];
-            } else { break; }
+        auto borders = mz.GetBorders(type);
+        // Симметричная вершина - это вершина с координатами:
+        int x = 0, y = 0;
+        if (type == "vertical") {
+            x = borders.second - (vs[first_vert].GetX() - borders.first);
+            y = vs[first_vert].GetY();
+        } else if (type == "horizontal") {
+            x = vs[first_vert].GetX();
+            y = borders.second - (vs[first_vert].GetY() - borders.first);
         }
 
-        tmp = first_vert;
-        while (true) {
-            size_t i = 0;
-            while (i < gph[tmp].size() &&
-                DIRS.DirectionBetween(tmp, gph[tmp][i]) != "R") {
-                ++i;
-            }
-            if (i < gph[tmp].size()) {
-                //std::cout << mz.GetBjn()[gph[tmp][i]] << '\n';
-                tmp = gph[tmp][i];
-            }
-            else { break; }
-        }
-
-        int new_vert = tmp; // полученная вершина из 2-3
-        for (size_t j = 0; j < count_left; ++j) {
-            for (size_t i = 0; i < gph[new_vert].size(); ++i) {
-                if (DIRS.DirectionBetween(new_vert, gph[new_vert][i]) == "L") {
-                    new_vert = gph[new_vert][i];
-                }
+        int new_vert = -1;
+        for (auto v : vs) {
+            if (v.GetX() == x && v.GetY() == y) {
+                new_vert = v.number;
+                break;
             }
         }
 
-        // По кратчайшему пути доходим к new_vert
+        try {
+            if (new_vert == -1) {
+                throw std::invalid_argument("ОШИБКА ПРЕОБРАЗОВАНИЯ");
+            }
+        } catch (std::invalid_argument& e) {
+            std::cerr << e.what() << ": ";
+            std::cerr << "НЕВОЗМОЖНО ПОСТРОИТЬ СИММЕТРИЧНЫЙ ПУТЬ ДЛЯ ПУТИ [ ";
+            for (size_t i = 0; i != subv.size(); ++i) {
+                std::cerr << mz.GetBjn()[subv[i]] << ' ';
+            }
+
+            std::cerr << "]\n";
+            std::cerr << "ВОЗМОЖНО, ЛАБИРИНТ НЕ ЯВЛЯЕТСЯ СИММЕТРИЧНЫМ\n";
+            exit(1);
+        }
+
         std::vector<int> tmp_v = mz.GetTensor()(subv.back(), new_vert);
-        for (size_t i = 0; i < tmp_v.size() - 1; ++i) { v.push_back(tmp_v[i]); }
-        inverse_dirs(str_v, type);  // Пункт 4
-        subv = DIRS.convert_to_v(str_v, new_vert); // пункт 5
+        if (tmp_v.size() > 0) {
+            for (size_t i = 0; i < tmp_v.size() - 1; ++i) { v.push_back(tmp_v[i]); }
+        }
+
+        inverse_dirs(str_v, type);
+        subv = DIRS.convert_to_v(str_v, new_vert);
         for (size_t i = 0; i < subv.size(); ++i) { v.push_back(subv[i]); }
     }
 
@@ -148,18 +135,16 @@ public:
 
     void method(const Maze& mz, std::vector<int>& v, size_t subseq_size) const override {
         if (probability == .0) return;
-        if (subseq_size > v.size()) { return; }
-        Symmetric_Tensor3D ST = mz.GetTensor();
+        if (v.size() < 8) { return; }
+        if (subseq_size >= v.size()) { subseq_size = 2 * v.size() / 3; }
 
         size_t from = v[v.size() - subseq_size];
         size_t to = *(--v.end());
-
         for (size_t i = 0; i < subseq_size - 1; ++i) {
             v.pop_back();
         }
 
-
-        std::vector<int> u = ST(from, to);
+        std::vector<int> u = mz.GetTensor()(from, to);
         for (size_t i = 0; i < u.size(); ++i) {
             v.push_back(u[i]);
         }
@@ -176,39 +161,23 @@ public:
     void method(const Maze& mz, std::vector<int>& v, size_t subseq_size) const override {
         if (probability == .0) return;
 
-        auto backup = v;
         std::vector<Vertex> VS = mz.GetVertexes();
-        int current_v = *(--v.end());
-        // if (!VS[current_v].bio_value) { return; }
-
+        int fixed_v = *(--v.end());
         graph_int gph = mz.GetGraphList();
-        auto fixed_v = current_v;
-        // Сначала идем до какого-нибудь значимого элемента
+        int current_v = fixed_v;
+
         while (true) {
-            int u = random_choice(gph[current_v]);
+            size_t u = random_choice(gph[current_v]);
             current_v = gph[current_v][u];
             v.push_back(current_v);
 
-            if (VS[current_v].bio_value) { 
-                break;
-            }
+            if (VS[current_v].bio_value) { break; }
         }
 
-        // Идем обратно кратчайшим путем
-        // Так как выбор рандомен, то пути скорее всего не совпадут
         auto path = mz.GetTensor()(current_v, fixed_v);
-        for (size_t i = 1; i < path.size(); ++i) {
-            v.push_back(path[i]);
-        }
 
-        // Если путь слишком большой
-        if (v.size() > 3 * gph.size() / 2) {
-            v = backup;
-            backup.clear();
-            path.clear();
-            gph.clear();
-            VS.clear();
-            method(mz, v, subseq_size);
+        for (size_t i = 0; i < path.size(); ++i) {
+            v.push_back(path[i]);
         }
     }
 
@@ -229,7 +198,7 @@ public:
 class discrete_vector {
 private:
     std::vector<std::unique_ptr<DiscreteOperator>> DOs;
-    double enable_prob; // Вероятность того, что ни один ДО не будет работать
+    size_t indexes[5]; // ISGRE
 
 public:
     discrete_vector() {
@@ -239,14 +208,17 @@ public:
         DOs.push_back(std::unique_ptr<DiscreteOperator>(new Grip(.0)));
         DOs.push_back(std::unique_ptr<DiscreteOperator>(new Ring(.0)));
         DOs.push_back(std::unique_ptr<DiscreteOperator>(new Empty(1.)));
+        for (size_t i = 0; i != 5; ++i) {
+            indexes[i] = i;
+        }
+
     }
     discrete_vector(double p1, double p2, double p3, double p4) {
         try {
-            if ((p1 + p2 + p3 + p4) > 1) {
+            if ((p1 + p2 + p3 + p4) > 1 + acc) {
                 throw std::invalid_argument("ЗАДАННЫЕ ВЕРОЯТНОСТИ НЕ СООТВЕТСТВУЮТ ТРЕБОВАНИЯМ");
             }
-        }
-        catch (std::invalid_argument& e) {
+        } catch (std::invalid_argument& e) {
             std::cerr << e.what() << '\n';
             std::cerr << "Сумма значений всех вероятностей не должна превышать единицу\n";
             exit(1);
@@ -265,11 +237,228 @@ public:
                 return (one->GetProb() < two->GetProb());
             }
         );
+
+        for (size_t i = 0; i != 5; ++i) {
+            if (typeid(*DOs[i]) == typeid(Inverse)) { indexes[0] = i; }
+            else if (typeid(*DOs[i]) == typeid(Symmetry)) { indexes[1] = i; }
+            else if (typeid(*DOs[i]) == typeid(Grip)) { indexes[2] = i; }
+            else if (typeid(*DOs[i]) == typeid(Ring)) { indexes[3] = i; }
+            else { indexes[4] = i; }
+        }
     }
 
     const std::unique_ptr<DiscreteOperator>& operator[] (size_t j) const { return DOs[j]; }
-    
-    // https://coderoad.ru/17250568/Случайный-выбор-из-списка-со-взвешенными-вероятностями
+    void SetInverseProb(double prob) {
+        // pi + pe = a
+        // pi -> prob
+        // prob + pe' = pi + pe = a
+        //  pe' = pi + pe - prob
+        double pi = DOs[indexes[0]]->GetProb();
+        double pe = DOs[indexes[4]]->GetProb();
+
+        try {
+            if ((pi + pe - prob) < 0.) {
+                throw std::invalid_argument("НЕВОЗМОЖНО ИЗМЕНИТЬ ВЕРОЯТНОСТЬ ОПЕРАТОРА ИНВЕРСИИ");
+            }
+        }
+        catch (std::invalid_argument& e) {
+            std::cerr << e.what() << '\n';
+            std::cerr << "Сумма значений всех вероятностей не должна превышать единицу\n";
+            exit(1);
+        }
+
+        DOs[indexes[0]]->SetProb(prob);
+        DOs[indexes[4]]->SetProb(pi + pe - prob);
+        std::sort(DOs.begin(), DOs.end(),
+            [](const std::unique_ptr<DiscreteOperator>& one,
+                const std::unique_ptr<DiscreteOperator>& two) -> bool {
+                return (one->GetProb() < two->GetProb());
+            }
+        );
+
+        for (size_t i = 0; i != 5; ++i) {
+            if (typeid(*DOs[i]) == typeid(Inverse)) { indexes[0] = i; }
+            else if (typeid(*DOs[i]) == typeid(Symmetry)) { indexes[1] = i; }
+            else if (typeid(*DOs[i]) == typeid(Grip)) { indexes[2] = i; }
+            else if (typeid(*DOs[i]) == typeid(Ring)) { indexes[3] = i; }
+            else { indexes[4] = i; }
+        }
+    }
+    void SetSymmetryProb(double prob) {
+        double ps = DOs[indexes[1]]->GetProb();
+        double pe = DOs[indexes[4]]->GetProb();
+
+        try {
+            if ((ps + pe - prob) < 0.) {
+                throw std::invalid_argument("НЕВОЗМОЖНО ИЗМЕНИТЬ ВЕРОЯТНОСТЬ ОПЕРАТОРА СИММЕТРИИ");
+            }
+        }
+        catch (std::invalid_argument& e) {
+            std::cerr << e.what() << '\n';
+            std::cerr << "Сумма значений всех вероятностей не должна превышать единицу\n";
+            exit(1);
+        }
+
+        DOs[indexes[1]]->SetProb(prob);
+        DOs[indexes[4]]->SetProb(ps + pe - prob);
+        std::sort(DOs.begin(), DOs.end(),
+            [](const std::unique_ptr<DiscreteOperator>& one,
+                const std::unique_ptr<DiscreteOperator>& two) -> bool {
+                return (one->GetProb() < two->GetProb());
+            }
+        );
+
+        for (size_t i = 0; i != 5; ++i) {
+            if (typeid(*DOs[i]) == typeid(Inverse)) { indexes[0] = i; }
+            else if (typeid(*DOs[i]) == typeid(Symmetry)) { indexes[1] = i; }
+            else if (typeid(*DOs[i]) == typeid(Grip)) { indexes[2] = i; }
+            else if (typeid(*DOs[i]) == typeid(Ring)) { indexes[3] = i; }
+            else { indexes[4] = i; }
+        }
+    }
+    void SetGripProb(double prob) {
+        double pg = DOs[indexes[2]]->GetProb();
+        double pe = DOs[indexes[4]]->GetProb();
+
+        try {
+            if ((pg + pe - prob) < 0.) {
+                throw std::invalid_argument("НЕВОЗМОЖНО ИЗМЕНИТЬ ВЕРОЯТНОСТЬ ОПЕРАТОРА СЖАТИЯ");
+            }
+        }
+        catch (std::invalid_argument& e) {
+            std::cerr << e.what() << '\n';
+            std::cerr << "Сумма значений всех вероятностей не должна превышать единицу\n";
+            exit(1);
+        }
+
+        DOs[indexes[2]]->SetProb(prob);
+        DOs[indexes[4]]->SetProb(pg + pe - prob);
+        std::sort(DOs.begin(), DOs.end(),
+            [](const std::unique_ptr<DiscreteOperator>& one,
+                const std::unique_ptr<DiscreteOperator>& two) -> bool {
+                return (one->GetProb() < two->GetProb());
+            }
+        );
+
+        for (size_t i = 0; i != 5; ++i) {
+            if (typeid(*DOs[i]) == typeid(Inverse)) { indexes[0] = i; }
+            else if (typeid(*DOs[i]) == typeid(Symmetry)) { indexes[1] = i; }
+            else if (typeid(*DOs[i]) == typeid(Grip)) { indexes[2] = i; }
+            else if (typeid(*DOs[i]) == typeid(Ring)) { indexes[3] = i; }
+            else { indexes[4] = i; }
+        }
+    }
+    void SetRingProb(double prob) {
+        double pr = DOs[indexes[3]]->GetProb();
+        double pe = DOs[indexes[4]]->GetProb();
+
+        try {
+            if ((pr + pe - prob) < 0.) {
+                throw std::invalid_argument("НЕВОЗМОЖНО ИЗМЕНИТЬ ВЕРОЯТНОСТЬ ОПЕРАТОРА КОЛЬЦА");
+            }
+        }
+        catch (std::invalid_argument& e) {
+            std::cerr << e.what() << '\n';
+            std::cerr << "Сумма значений всех вероятностей не должна превышать единицу\n";
+            exit(1);
+        }
+
+        DOs[indexes[3]]->SetProb(prob);
+        DOs[indexes[4]]->SetProb(pr + pe - prob);
+        std::sort(DOs.begin(), DOs.end(),
+            [](const std::unique_ptr<DiscreteOperator>& one,
+                const std::unique_ptr<DiscreteOperator>& two) -> bool {
+                return (one->GetProb() < two->GetProb());
+            }
+        );
+
+        for (size_t i = 0; i != 5; ++i) {
+            if (typeid(*DOs[i]) == typeid(Inverse)) { indexes[0] = i; }
+            else if (typeid(*DOs[i]) == typeid(Symmetry)) { indexes[1] = i; }
+            else if (typeid(*DOs[i]) == typeid(Grip)) { indexes[2] = i; }
+            else if (typeid(*DOs[i]) == typeid(Ring)) { indexes[3] = i; }
+            else { indexes[4] = i; }
+        }
+    }
+    void SetProbs(double ps, double pi, double pg, double pr) {
+        try {
+            if (ps + pi + pg + pr > 1. + acc) {
+                throw std::invalid_argument("НЕВАЛИДНЫЙ АРГУМЕНТ");
+            }
+        } catch (std::invalid_argument& e) {
+            std::cerr << e.what() << '\n';
+            std::cerr << "Сумма значений всех вероятностей не должна превышать единицу\n";
+            exit(1);
+        }
+
+        DOs[indexes[0]]->SetProb(ps);
+        DOs[indexes[1]]->SetProb(pi);
+        DOs[indexes[2]]->SetProb(pg);
+        DOs[indexes[3]]->SetProb(pr);
+        DOs[indexes[4]]->SetProb(1. - ps - pi - pg - pr);
+        std::sort(DOs.begin(), DOs.end(),
+            [](const std::unique_ptr<DiscreteOperator>& one,
+                const std::unique_ptr<DiscreteOperator>& two) -> bool {
+                return (one->GetProb() < two->GetProb());
+            }
+        );
+
+        for (size_t i = 0; i != 5; ++i) {
+            if (typeid(*DOs[i]) == typeid(Inverse)) { indexes[0] = i; }
+            else if (typeid(*DOs[i]) == typeid(Symmetry)) { indexes[1] = i; }
+            else if (typeid(*DOs[i]) == typeid(Grip)) { indexes[2] = i; }
+            else if (typeid(*DOs[i]) == typeid(Ring)) { indexes[3] = i; }
+            else { indexes[4] = i; }
+        }
+    }
+    void SetProbs(std::vector<double> probs) {
+        try {
+            if (probs.size() > 4) {
+                throw std::invalid_argument("НЕВАЛИДНЫЙ АРГУМЕНТ");
+            }
+        }
+        catch (std::invalid_argument& e) {
+            std::cerr << e.what() << '\n';
+            std::cerr << "Неверный размер переданного вектора\n";
+            exit(1);
+        }
+
+        double s = 0;
+        for (auto x : probs) { s += x;  }
+        try {
+            if (s > 1.+ acc) {
+                throw std::invalid_argument("НЕВАЛИДНЫЙ АРГУМЕНТ");
+            }
+        }
+        catch (std::invalid_argument& e) {
+            std::cerr << e.what() << '\n';
+            std::cerr << "Сумма значений всех вероятностей не должна превышать единицу\n";
+            exit(1);
+        }
+
+        for (size_t i = 0; i != 5; ++i) {
+            DOs[i]->SetProb(0.);
+        }
+        for (size_t i = 0; i != probs.size(); ++i) {
+            DOs[indexes[i]]->SetProb(probs[i]);
+        }
+
+        DOs[indexes[4]]->SetProb(1. - s);
+        std::sort(DOs.begin(), DOs.end(),
+            [](const std::unique_ptr<DiscreteOperator>& one,
+                const std::unique_ptr<DiscreteOperator>& two) -> bool {
+                return (one->GetProb() < two->GetProb());
+            }
+        );
+
+        for (size_t i = 0; i != 5; ++i) {
+            if (typeid(*DOs[i]) == typeid(Inverse)) { indexes[0] = i; }
+            else if (typeid(*DOs[i]) == typeid(Symmetry)) { indexes[1] = i; }
+            else if (typeid(*DOs[i]) == typeid(Grip)) { indexes[2] = i; }
+            else if (typeid(*DOs[i]) == typeid(Ring)) { indexes[3] = i; }
+            else { indexes[4] = i; }
+        }
+    }
     size_t rand_choice() const {
         double rnd = gen.d_udist(0, 1);
         size_t i = 0;
@@ -282,29 +471,32 @@ public:
     }
 };
 
-std::vector<char> gen_discrete_path(const Maze& mz,
-        const discrete_vector& DV,
-            const std::vector<int>& seq) {
+std::vector<int> gen_discrete_path(const Maze& mz,
+        const discrete_vector& DV, const std::vector<int>& seq) {
 
     std::vector<int> new_seq;
     new_seq.reserve(seq.size());
+    if (seq.size() == 0) { return seq; }
+    if (seq.size() < 2) { 
+        return seq; 
+    }
+
     for (size_t i = 0; i < seq.size() - 1; ++i) {
+        if (new_seq.size() >= treshold) {
+            return new_seq;
+        }
+
         new_seq.push_back(seq[i]);
-        if (new_seq.size() < 3) { continue; }
+
         size_t k = DV.rand_choice();
-        // Вера говорила, что длина подпоследовательности может варироваться
-        // Дабы не заморачиваться, решил сделать так:
-        size_t LENGHT = std::min(int(new_seq.size()), gen.int_udist(2, 6));
+        size_t LENGHT = gen.int_udist(2, 6);
+        if (typeid(*DV[k]) == typeid(Grip)) {
+            LENGHT = (size_t)gen.int_udist(6, 25);
+        }
 
         DV[k]->method(mz, new_seq, LENGHT);
 
-        // Посмотрим на последнюю полученную вершину
-        // Если есть ребро с i+1-ой, то ок
-        // Иначе нам надо прийти в i+1, 
-        // желательно по кратчайшему пути
-        // В целом, можно это и сделать и без проверки существования ребра
         std::vector<int> bridge = mz.GetTensor()(new_seq.back(), seq[i + 1]);
-        
         if (bridge.size() == 0) { continue; }
         for (size_t j = 0; j < bridge.size() - 1; ++j) {
             new_seq.push_back(bridge[j]);
@@ -312,31 +504,151 @@ std::vector<char> gen_discrete_path(const Maze& mz,
     }
 
     new_seq.push_back(seq.back());
-    return int_to_char(mz.GetBjn(), new_seq);
+    return new_seq;
 }
 
-void gen_paths_file(const std::string& filename, const Maze& mz,
-    const discrete_vector& DOs, size_t trials, char entry) {
+// Функция возвращает вектор последовательностей в числовом виде,
+// Вместе с этим записывает из в файл в буквенном виде
+// Файл всегда называется sequences.txt, при отсутствии он будет создан
+std::vector<std::string> gen_paths_file_str(const Maze& mz,
+            const discrete_vector& DOs, size_t trials, std::vector<int> seq) {
 
-    std::ofstream file(filename, std::ios_base::trunc | std::ios_base::out);
+    std::ofstream file("sequences.txt", std::ios_base::out | std::ios_base::app);
     try {
         if (!file.is_open())
-            throw std::runtime_error("НЕ УДАЛОСЬ ОТКРЫТЬ ФАЙЛ");
+            throw std::runtime_error("НЕ УДАЛОСЬ ОТКРЫТЬ ИЛИ СОЗДАТЬ ФАЙЛ");
     } catch (std::runtime_error& e) {
         std::cerr << e.what() << '\n';
         exit(1);
     }
 
-    std::vector<int> seq = mz.gen_trivial_path(entry);
+    auto tmp = int_to_char_str(mz.GetBjn(), seq);
+    for (auto it = tmp.begin(); it != tmp.end(); ++it) { file << *it; }
+    file << '\n';
+
+    std::vector<std::string> paths;
+    paths.reserve(trials + 1);
+    paths.push_back(tmp);
+    for (size_t i = 0; i < trials; ++i) {
+        seq = gen_discrete_path(mz, DOs, seq);
+        std::string seq_chars = int_to_char_str(mz.GetBjn(), seq);
+        paths.push_back(seq_chars);
+        for (auto it = seq_chars.begin(); it != seq_chars.end(); ++it) { file << *it; }
+        file << '\n';
+    }
+
+    // Последовательности будут разделены переносом строки
+    file << '\n';
+    file.close();
+
+    return paths;
+}
+
+std::vector<std::vector<int>> gen_paths_file_int(const Maze& mz,
+            const discrete_vector& DOs, size_t trials, std::vector<int> seq) {
+
+    std::ofstream file("sequences.txt", std::ios_base::out);
+    try {
+        if (!file.is_open())
+            throw std::runtime_error("НЕ УДАЛОСЬ ОТКРЫТЬ ИЛИ СОЗДАТЬ ФАЙЛ");
+    }
+    catch (std::runtime_error& e) {
+        std::cerr << e.what() << '\n';
+        exit(1);
+    }
+
     auto tmp = int_to_char(mz.GetBjn(), seq);
     for (auto it = tmp.begin(); it != tmp.end(); ++it) { file << *it; }
     file << '\n';
 
+    std::vector<std::vector<int>> paths;
+    paths.reserve(trials + 1);
+    paths.push_back(seq);
     for (size_t i = 0; i < trials; ++i) {
-        auto v = gen_discrete_path(mz, DOs, seq);
-        for (auto it = v.begin(); it != v.end(); ++it) { file << *it; }
+        seq = gen_discrete_path(mz, DOs, seq);
+
+        paths.push_back(seq);
+        auto seq_chars = int_to_char(mz.GetBjn(), seq);
+        for (auto it = seq_chars.begin(); it != seq_chars.end(); ++it) { file << *it; }
         file << '\n';
     }
 
+    // Последовательности будут разделены переносом строки
+    file << '\n';
     file.close();
+
+    return paths;
+}
+
+// Второй вариант применения ДО к последовательности
+// Применяем N раз какие-нибудь ДО к рандомным элементам последовательности
+std::vector<int> gen_discrete_path(const Maze& mz,
+    const discrete_vector& DV, const std::vector<int>& seq, size_t N) {
+
+    std::vector<int> new_seq = seq;
+    if (seq.size() < 3) { return seq; }
+
+    for (size_t j = 0; j != N; ++j) {
+        if (new_seq.size() >= treshold) {
+            return new_seq;
+        }
+
+        int k = gen.int_udist(2, new_seq.size() - 2);
+        std::vector<int> u(new_seq.begin(), new_seq.begin() + k);
+        std::vector<int> v(new_seq.begin() + k, new_seq.end());
+
+        size_t o_ind = DV.rand_choice();
+        size_t LENGHT = gen.int_udist(2, 6);
+        if (typeid(*DV[o_ind]) == typeid(Grip)) {
+            LENGHT = (size_t)gen.int_udist(6, 25);
+        }
+
+        DV[o_ind]->method(mz, u, LENGHT);
+
+        std::vector<int> bridge = mz.GetTensor()(u.back(), v.front());
+        if (bridge.size() == 0) { continue; }
+        for (size_t i = 0; i < bridge.size() - 1; ++i) {
+            u.push_back(bridge[i]);
+        }
+
+        new_seq = u;
+        new_seq.insert(new_seq.end(), v.begin(), v.end());
+    }
+
+    return new_seq;
+}
+
+std::vector<std::string> gen_paths_file_str(const Maze& mz,
+    const discrete_vector& DOs, size_t trials, std::vector<int> seq, size_t N) {
+
+    std::ofstream file("sequences.txt", std::ios_base::out);
+    try {
+        if (!file.is_open())
+            throw std::runtime_error("НЕ УДАЛОСЬ ОТКРЫТЬ ИЛИ СОЗДАТЬ ФАЙЛ");
+    }
+    catch (std::runtime_error& e) {
+        std::cerr << e.what() << '\n';
+        exit(1);
+    }
+
+    auto tmp = int_to_char_str(mz.GetBjn(), seq);
+    for (auto it = tmp.begin(); it != tmp.end(); ++it) { file << *it; }
+    file << '\n';
+
+    std::vector<std::string> paths;
+    paths.reserve(trials + 1);
+    paths.push_back(tmp);
+    for (size_t i = 0; i < trials; ++i) {
+        seq = gen_discrete_path(mz, DOs, seq, N);
+        std::string seq_chars = int_to_char_str(mz.GetBjn(), seq);
+        paths.push_back(seq_chars);
+        for (auto it = seq_chars.begin(); it != seq_chars.end(); ++it) { file << *it; }
+        file << '\n';
+    }
+
+    // Последовательности будут разделены переносом строки
+    file << '\n';
+    file.close();
+
+    return paths;
 }

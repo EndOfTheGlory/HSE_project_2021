@@ -7,18 +7,19 @@
 #include "vertex.h"
 #include "bijection.h"
 #include "randomgenerator.h"
-#include "path_algo.h"
+#include "tensor.h"
 #include "help_functions.h"
 
 using graph_int = std::vector<std::vector<int>>;
 extern RandomGenerator gen;
+extern const int INF;
 
 class Maze {
 private:
-    Symmetric_Tensor3D ST;
+    Bjn bjn;
+    Tensor3D ST;
     Directions DIRS;
     graph_int gph;
-    Bjn bjn;
     std::vector<Vertex> vertexes;
 
 public:
@@ -29,55 +30,78 @@ public:
         bjn = b;
         vertexes = vs;
 
-        graph_int matrix = construct_table(tbl);
-        ST = floyd_warshall(matrix);
-
+        graph_int matrix = construct_table(tbl, vertexes);
+        // alert_adj_table(matrix, bjn);
+        ST = floyd_warshall(matrix, vertexes);
         DIRS = Directions(vertexes, matrix);
     }
 
-    // Êîíñòàíòíûå ãåòòåğû - íàìåê íà òî, ÷òî ìû íè÷åãî íå áóäåì ìåíÿòü èç âíå
-    // Ññûëêè íóæíû, òàê êàê îáúåêòû êëàññà - óâåñèñòûå
-    const Bjn& GetBjn() const { return bjn; }
-    const std::vector<Vertex>& GetVertexes() const { return vertexes; }
-    const Directions& GetDirections() const { return DIRS; }
-    const graph_int& GetGraphList() const { return gph; }
-    const graph_int& GetLeastDists() const { return ST.GetDists(); }
-    const Symmetric_Tensor3D& GetTensor() const { return ST; }
+    const Bjn GetBjn() const { return bjn; }
+    const std::vector<Vertex> GetVertexes() const { return vertexes; }
+    const Directions GetDirections() const { return DIRS; }
+    const graph_int GetGraphList() const { return gph; }
+    const Tensor3D GetTensor() const { return ST; }
+
+    const std::pair<int, int> GetBorders(std::string type) const {
+        int mn = 0, mx = 0;
+        if (type == "vertical") {
+            for (auto v : vertexes) {
+                if (v.GetX() < mn) { mn = v.GetX(); }
+                if (v.GetX() > mx) { mx = v.GetX(); }
+            }
+        } else if (type == "horizontal") {
+            for (auto v : vertexes) {
+                if (v.GetY() < mn) { mn = v.GetY(); }
+                if (v.GetY() > mx) { mx = v.GetY(); }
+            }
+        }
+
+        return std::make_pair(mn, mx);
+    }
 
     void MazeInfo() const {
+        std::cout << "VERTEXES INFO:\n";
         alert_vertexes(bjn, gph, vertexes);
         std::cout << '\n';
 
         std::cout << "ADJ LIST:\n";
-        alert(gph);
+        alert(gph, bjn);
         std::cout << '\n';
 
         std::cout << "DIRECTIONS:\n";
         DIRS.PrintDirections(bjn);
         std::cout << '\n';
 
-        // FIXME
         std::cout << "LEAST DISTS:\n";
         ST.PrintPaths(bjn);
         std::cout << "\n";
     }
 
-    // ÏÅĞÂÛÉ ÏĞÎÕÎÄ ËÀÁÈĞÈÍÒÀ
     std::vector<int> gen_trivial_path(char start_c) const {
-        int current_v = bjn[start_c];
+        size_t current_v = bjn[start_c];
+        try {
+            if (!vertexes[current_v].is_entry) {
+                throw std::invalid_argument("ÍÅÂÀËÈÄÍÛÉ ÀĞÃÓÌÅÍÒ");
+            }
+        }
+        catch (std::invalid_argument& e) {
+            std::cerr << e.what() << ": ";
+            std::cerr << "ÑÒÀĞÒÎÂÀß ÂÅĞØÈÍÀ ÄÎËÆÍÛ ßÂËßÒÜÑß ÒÎ×ÊÎÉ ÂÕÎÄÀ Â ËÀÁÈĞÈÍÒ\n";
+            exit(1);
+        }
 
         std::vector<int> path;
         path.reserve(bjn.size());
 
         path.push_back(current_v);
         while (!vertexes[current_v].is_feed) {
-            int u = random_choice(gph[current_v]);
+            size_t u = random_choice(gph[current_v]);
             current_v = gph[current_v][u];
             path.push_back(current_v);
         }
 
         while (!vertexes[current_v].is_exit) {
-            int u = random_choice(gph[current_v]);
+            size_t u = random_choice(gph[current_v]);
             current_v = gph[current_v][u];
             path.push_back(current_v);
         }
@@ -102,7 +126,7 @@ Maze Construct_Maze(std::string filename) {
     
     std::vector<char> vs;
     std::string line;
-    // Ïåğâàÿ ñòğîêà - ïğîñòî âåğøèíû
+
     getline(file, line);
     vs = split_char(line, ' ');
     Bjn bjn(vs);
@@ -124,7 +148,6 @@ Maze Construct_Maze(std::string filename) {
           for (size_t j = 0; j != vs.size(); ++j) {
               gph[bjn[V]].push_back(bjn[vs[j]]);
           }
-
     }
 
     file.close();

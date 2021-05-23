@@ -1,106 +1,46 @@
-п»ї#include <iostream>
+#include <iostream>
 #include <vector>
 #include <memory>
 #include "bijection.h"
 #include "randomgenerator.h"
-#include "path_algo.h"
+#include "tensor.h"
 #include "vertex.h"
 #include "help_functions.h"
 #include "discrete.h"
 #include "maze.h"
-
-#define all(v) (v).begin(), (v).end()
-#define forn(i, N) for (size_t i = 0; i != (N); ++i)
-#define foran(i, a, N) for (size_t i = a; i != (N); ++i)
-#define forin(elem, v) for (auto elem : v)
+#include "levenshtein.h"
 
 using graph_int = std::vector<std::vector<int>>;
-
 using namespace std;
 
 int main() {
-    setlocale(LC_ALL, "Russian");    
-    {
-        /*   (0, 0)
-                Рђ -- Р• -- Р› -- Р  -- РҐ
-                |    |    |    |    |
-                Р‘ -- Р– -- Рњ -- РЎ -- Р¦
-                |    |    |    |    |
-                Р’ -- Р— -- Рќ -- Рў -- Р§
-                |    |    |    |    |
-                Р“ -- Р -- Рћ -- РЈ -- Р®
-                |    |    |    |    |
-                Р” -- Рљ -- Рџ -- Р¤ -- РЇ
-        */
-        Maze mz = Construct_Maze("graphs/graph_major_test.txt");
-        Bjn bjn = mz.GetBjn();
-        auto ST = mz.GetTensor();
-        graph_int gph = mz.GetGraphList();
-        vector<Vertex> vertexes = mz.GetVertexes();
-        Directions DIRS = mz.GetDirections();
-        mz.MazeInfo();
+    setlocale(LC_ALL, "ru");
+    string mazename = "nikolskaya.txt";
+    //cout << "Введите файла с лабиринтом: ";
+    //getline(cin, mazename);
 
-        std::vector<char> vc_1 = {'Рђ', 'Р•', 'Р–', 'Р—', 'Р’', 'Р“', 'Р' };
-        std::vector<char> vc_2 = { 'Р•', 'Рђ', 'Р‘', 'Р–', 'Р—', 'Р', 'Р“', 'Р”' };
-        std::vector<char> vc_3 = { 'Рђ', 'Р•', 'Р–', 'Р‘', 'Р–', 'Р—'};
-        std::vector<char> vc_4 = { 'РҐ', 'Р ', 'РЎ', 'Рњ', 'Рќ', 'Рў', 'РЈ', 'Рћ', 'Рќ' };
-        std::vector<char> vc_5 = { 'РЎ', 'Рњ', 'Рќ', 'Рў', 'РЈ', 'Рћ', 'Р' };
-        std::vector<char> vc_6 = { 'Рњ', 'РЎ', 'Рў', 'Р§', 'Р®' };
+    Maze mz = Construct_Maze("graphs/" + mazename);
+    std::cout << "Лабиринт построен\n";
 
-        std::vector<int> v_1 = char_to_int(bjn, vc_1);
-        std::vector<int> v_2 = char_to_int(bjn, vc_2);
-        std::vector<int> v_3 = char_to_int(bjn, vc_3);
-        std::vector<int> v_4 = char_to_int(bjn, vc_4);
-        std::vector<int> v_5 = char_to_int(bjn, vc_5);
-        std::vector<int> v_6 = char_to_int(bjn, vc_6);
+    // alert_vertexes(mz.GetBjn(), mz.GetGraphList(), mz.GetVertexes());
+    // mz.GetTensor().PrintPaths(mz.GetBjn());
+    discrete_vector DV;
+    vector<string> U = read_file("temp.txt", 5);
+    string U_1 = "ОМЭЯГЯМОЫОИКИЛИМЯГЯЭМИЛКДСШЕЛИМИМИКДСШРШСДСШЕЛИОЫОИМЯЗУЩТ";
 
-        discrete_vector DV(0.22, 0.25, 0.25, 0.25);
-        for (size_t i = 0; i < 5; ++i) {
-            DV[i]->name();
-        }
+    // pair<vector<double>, int> answer = learn(mz, 16, U, DV, U_1, 0.05, 20);
 
-        cout << "\n";
-
-        DV[2]->method(mz, v_1, v_1.size());
-        alert(int_to_char(bjn, v_1));
-        DV[2]->method(mz, v_2, v_2.size());
-        alert(int_to_char(bjn, v_2));
-        DV[2]->method(mz, v_3, v_3.size());
-        alert(int_to_char(bjn, v_3));
-        DV[2]->method(mz, v_4, v_4.size());
-        alert(int_to_char(bjn, v_4));
-        DV[2]->method(mz, v_5, v_5.size());
-        alert(int_to_char(bjn, v_5));
-        DV[2]->method(mz, v_6, v_6.size());
-        alert(int_to_char(bjn, v_6));
-
-        cout << "\n";
-
-        std::vector<char> vc_1G = { 'Рђ', 'Р•', 'Р–', 'Р—', 'Р’', 'Р“', 'Р' };
-        std::vector<char> vc_2G = { 'Р•', 'Р–', 'Р—', 'Р', 'Рљ', 'Рџ', 'Р¤', 'РЈ', 'Р®', 'РЇ', 'Р®', 'Р§', 'Рў', 'РЎ', 'Р¦', 'Р§', 'Рў', 'Рќ' };
-
-        std::vector<int> v_1G = char_to_int(bjn, vc_1G);
-        std::vector<int> v_2G = char_to_int(bjn, vc_2G);
-
-        DV[3]->method(mz, v_1G, v_1G.size());
-        alert(int_to_char(bjn, v_1G));
-        DV[3]->method(mz, v_2G, v_2G.size());
-        alert(int_to_char(bjn, v_2G));
-
-        cout << "\n";
-
-        std::vector<char> vc_1I = { 'Рђ', 'Р•', 'Р–', 'Р—', 'Р’', 'Р“', 'Р' };
-        std::vector<int> v_1I = char_to_int(bjn, vc_1I);
-        DV[1]->method(mz, v_1I, v_1I.size());
-        alert(int_to_char(bjn, v_1I));
-
-        cout << "\n";
-
-        std::vector<char> vc_1R = { 'Рђ', 'Р•', 'Р–', 'Р—', 'Р’', 'Р“', 'Р' };
-        std::vector<int> v_1R = char_to_int(bjn, vc_1R);
-        DV[4]->method(mz, v_1R, v_1R.size());
-        alert(int_to_char(bjn, v_1R));
-    }
-
+    //std::vector<std::vector<double>> grid = gen_grid(
+    //    { 0.1, 0.1, 0.1, 0.1 }, { 0.9, 0.9, 0.9, 0.9 }, 0.1);
+    //alert(grid);
+    // we found out that {0.2 , 0.05, 0.65, 0.1} is the most optimal vector(= answer)
+    // but it takes long to search, so let' compare atirifcally
+    vector<double> best{ 0.2, 0.05, 0.65, 0.1 };
+    compare_real_learned(mz, 16, U, DV, U_1, 0.05, 20, make_pair(best, 6));
     return 0;
 }
+
+// Все последовательности не должны выходить за пределы лабиринта
+// Поэтому уберем все ребра от выходов к входам - для Никольской ТЫ и РЫ
+// В этом случае можно оптимизировать класс SymTensor
+// Идея: увеличить длину последовательности для оператора сжатия
